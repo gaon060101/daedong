@@ -52,11 +52,12 @@ export default function CustomerApp({ initialTable }) {
           
           <p className="text-gray-500 mb-4 font-bold">테이블 번호를 입력해주세요</p>
           <input 
-            type="number" 
+            type="tel"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={table}
-            onChange={(e) => setTable(e.target.value)}
-            placeholder="예: 3"
-            className="w-full text-center text-5xl font-black text-yonsei border-b-4 border-slate-200 focus:border-yonsei outline-none pb-4 mb-10 bg-transparent transition-colors placeholder:text-gray-200"
+            onChange={(e) => setTable(e.target.value.replace(/[^0-9]/g, ''))}
+            className="w-full text-center text-5xl font-black text-yonsei border-b-4 border-slate-200 focus:border-yonsei outline-none pb-4 mb-10 bg-transparent transition-colors"
           />
           
           <button 
