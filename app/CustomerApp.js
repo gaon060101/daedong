@@ -18,6 +18,8 @@ export default function CustomerApp({ initialTable }) {
   const [orderRejected, setOrderRejected] = useState(false);
   const [orderAccepted, setOrderAccepted] = useState(false);
   
+  const [selectedImage, setSelectedImage] = useState(null);
+  
   const categories = ["전체", ...MENU_DATA.map(c => c.category), "장바구니"];
   const [activeCategory, setActiveCategory] = useState("전체");
 
@@ -371,18 +373,42 @@ export default function CustomerApp({ initialTable }) {
 
                   return (
                     <div key={item.id} className="bg-white/80 backdrop-blur-md p-4 rounded-[1.5rem] shadow-sm border border-white flex gap-4 transition-all hover:shadow-md relative overflow-hidden group">
-                      <div className="w-28 h-28 shrink-0 bg-slate-100/80 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-gray-400 relative overflow-hidden group-hover:border-blue-200 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 mb-1.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                        </svg>
-                        <span className="text-[10px] font-bold tracking-wider">사진 준비중</span>
+                      <div className="w-24 h-[135px] shrink-0 bg-slate-100/80 rounded-xl border border-slate-200 flex flex-col items-center justify-center text-gray-400 relative overflow-hidden group-hover:border-blue-200 transition-colors">
+                        {item.image && item.image !== "/placeholder.png" ? (
+                          <>
+                            <img 
+                              src={item.image} 
+                              alt={item.name} 
+                              className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300" 
+                              onClick={() => setSelectedImage(item.image)}
+                            />
+                            <div 
+                              className="absolute bottom-1 right-1 bg-black/50 backdrop-blur-sm p-1 rounded-full pointer-events-none"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="w-3 h-3">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+                              </svg>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 mb-1.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                            </svg>
+                            <span className="text-[10px] font-bold tracking-wider">사진 준비중</span>
+                          </>
+                        )}
                       </div>
 
                       <div className="flex-1 flex flex-col justify-between py-1 pr-1">
                         <div>
-                          <h3 className="font-bold text-gray-800 text-lg leading-snug tracking-tight">{item.name}</h3>
-                          {item.originalName && (
-                            <p className="text-xs text-gray-400 font-bold mt-0.5">{item.originalName}</p>
+                          {item.originalName ? (
+                            <>
+                              <h3 className="font-bold text-gray-800 text-lg leading-snug tracking-tight">{item.originalName}</h3>
+                              <p className="text-xs text-gray-400 font-bold mt-0.5">{item.name}</p>
+                            </>
+                          ) : (
+                            <h3 className="font-bold text-gray-800 text-lg leading-snug tracking-tight">{item.name}</h3>
                           )}
                           <p className="text-yonsei font-black mt-1.5 text-lg">
                             {item.options ? `${item.price.toLocaleString()}원~` : `${item.price.toLocaleString()}원`}
@@ -442,9 +468,13 @@ export default function CustomerApp({ initialTable }) {
           <div className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-3xl p-6 pb-8 shadow-2xl animate-slideUp">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight">{optionModalItem.name}</h3>
-                {optionModalItem.originalName && (
-                  <p className="text-sm text-gray-400 font-bold mt-1">{optionModalItem.originalName}</p>
+                {optionModalItem.originalName ? (
+                  <>
+                    <h3 className="text-2xl font-black text-gray-900 tracking-tight">{optionModalItem.originalName}</h3>
+                    <p className="text-sm text-gray-400 font-bold mt-1">{optionModalItem.name}</p>
+                  </>
+                ) : (
+                  <h3 className="text-2xl font-black text-gray-900 tracking-tight">{optionModalItem.name}</h3>
                 )}
               </div>
               <button onClick={() => setOptionModalItem(null)} className="p-2 bg-slate-100 rounded-full text-gray-500 hover:bg-slate-200 transition">
@@ -515,6 +545,25 @@ export default function CustomerApp({ initialTable }) {
             className="w-full bg-gradient-to-r from-yonsei to-blue-700 text-white py-4 rounded-2xl font-black text-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all"
           >
             {activeCategory === "장바구니" ? "결제 진행하기" : "주문하기"}
+          </button>
+        </div>
+      )}
+
+      {/* Full-size Image Viewer Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 cursor-pointer backdrop-blur-sm"
+          onClick={() => setSelectedImage(null)}
+        >
+          <img 
+            src={selectedImage} 
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" 
+            alt="Expanded view" 
+          />
+          <button className="absolute top-6 right-6 text-white bg-black/50 p-2 rounded-full backdrop-blur-sm hover:bg-black/70 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
       )}
