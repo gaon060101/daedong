@@ -3,13 +3,15 @@
 import { useState, useEffect } from "react";
 import { MENU_DATA } from "@/lib/data";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp, doc, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot, serverTimestamp, writeBatch, increment } from "firebase/firestore";
 
 export default function CustomerApp({ initialTable }) {
   const [table, setTable] = useState(initialTable || "");
   const [isTableSet, setIsTableSet] = useState(false); 
   const [cart, setCart] = useState({});
+  const [inventory, setInventory] = useState({});
   
+  const [isConfirmingName, setIsConfirmingName] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
@@ -26,6 +28,17 @@ export default function CustomerApp({ initialTable }) {
   const [optionModalItem, setOptionModalItem] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null); 
   const [optionQuantity, setOptionQuantity] = useState(1);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "inventory"), (snapshot) => {
+      const invData = {};
+      snapshot.forEach(doc => {
+        invData[doc.id] = doc.data().remainingCount;
+      });
+      setInventory(invData);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!currentOrderId) return;
@@ -128,14 +141,28 @@ export default function CustomerApp({ initialTable }) {
         option: item.option || null
       }));
 
-      const docRef = await addDoc(collection(db, "orders"), {
+      const batch = writeBatch(db);
+      const orderRef = doc(collection(db, "orders"));
+      
+      batch.set(orderRef, {
         tableNumber: table,
         items,
         totalAmount,
         status: "pending",
         createdAt: serverTimestamp(),
       });
-      setCurrentOrderId(docRef.id);
+
+      // 재고 차감 로직
+      items.forEach(item => {
+        if (inventory[item.id] !== undefined && inventory[item.id] !== null) {
+          const itemRef = doc(db, "inventory", item.id);
+          batch.update(itemRef, { remainingCount: increment(-item.quantity) });
+        }
+      });
+
+      await batch.commit();
+      
+      setCurrentOrderId(orderRef.id);
       setOrderComplete(true);
     } catch (error) {
       console.error("Error submitting order: ", error);
@@ -147,6 +174,7 @@ export default function CustomerApp({ initialTable }) {
 
   const resetOrder = () => {
     setOrderComplete(false);
+    setIsConfirmingName(false);
     setIsPaying(false);
     setOrderRejected(false);
     setOrderAccepted(false);
@@ -250,6 +278,42 @@ export default function CustomerApp({ initialTable }) {
     );
   }
 
+  if (isConfirmingName) {
+    return (
+      <div className="flex flex-col items-center min-h-[100dvh] p-6 text-center bg-transparent pt-12">
+        <div className="bg-white/95 backdrop-blur-xl p-8 rounded-3xl shadow-2xl max-w-md w-full border-t-8 border-red-500 text-left relative animate-slideUp">
+          <button 
+            onClick={() => setIsConfirmingName(false)}
+            className="absolute top-5 left-5 p-2 bg-slate-100 rounded-full text-gray-500 hover:text-gray-800 transition"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+          </button>
+          
+          <h2 className="text-2xl font-black text-gray-800 mt-10 mb-4 tracking-tight">🚨 잠깐! 🚨</h2>
+          
+          <div className="bg-red-50 p-6 rounded-2xl mb-8 border border-red-200 shadow-sm">
+            <p className="text-gray-800 text-lg mb-2 font-bold leading-relaxed">
+              입금자명을 반드시 <span className="text-red-600 font-black text-xl bg-red-100/50 px-1 rounded">테이블 번호</span>로 변경해서 입금해주셔야 주문 확인이 가능합니다!
+            </p>
+            <p className="text-gray-500 text-sm mt-3">(예: 5번 테이블인 경우 입금자명 <strong className="text-gray-700">'5'</strong>)</p>
+          </div>
+
+          <button
+            onClick={() => {
+              setIsConfirmingName(false);
+              setIsPaying(true);
+            }}
+            className="w-full bg-red-500 text-white py-5 rounded-2xl font-black text-xl shadow-lg hover:bg-red-600 active:scale-[0.98] transition-all"
+          >
+            네, 테이블 번호로 입금하겠습니다
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (isPaying) {
     return (
       <div className="flex flex-col items-center min-h-[100dvh] p-6 text-center bg-transparent pt-12">
@@ -271,11 +335,16 @@ export default function CustomerApp({ initialTable }) {
           </div>
 
           <div className="bg-blue-50/50 p-5 rounded-2xl mb-8 border border-blue-100">
-            <p className="text-sm text-yonsei font-black mb-3">총무 계좌번호</p>
+            <p className="text-sm text-yonsei font-black mb-3">입금 계좌번호</p>
             <div className="bg-white p-4 rounded-xl border border-blue-200 shadow-sm mb-3 text-center">
-              <span className="font-black text-gray-800 text-2xl tracking-tight block">카카오뱅크</span>
-              <span className="font-bold text-gray-600 text-xl tracking-widest mt-1 block">1234-56-7890</span>
-              <p className="text-gray-500 text-sm mt-3 font-bold bg-slate-50 py-1.5 rounded-lg border border-slate-100">예금주: 총무명</p>
+              <span className="font-black text-gray-800 text-2xl tracking-tight block">신한은행</span>
+              <span className="font-bold text-gray-600 text-xl tracking-widest mt-1 block">110-619-215638</span>
+              <p className="text-gray-500 text-sm mt-3 font-bold bg-slate-50 py-1.5 rounded-lg border border-slate-100">예금주: 황주연</p>
+            </div>
+            <div className="text-sm text-center font-bold bg-red-50 py-3 px-2 rounded-lg border border-red-200 shadow-sm mb-3">
+              <p className="text-red-600 text-base mb-1">🚨 주의사항 🚨</p>
+              <p className="text-gray-700 leading-relaxed">입금자명을 반드시 <span className="text-red-600 font-black text-base bg-red-100/50 px-1 rounded">테이블 번호</span>로 변경해서 입금해주세요!</p>
+              <p className="text-gray-500 text-xs mt-1">(예: 5번 테이블인 경우 입금자명 '5')</p>
             </div>
             <p className="text-sm text-gray-600 text-center font-bold bg-white/60 py-2.5 rounded-lg border border-white shadow-sm">
               ⚠️ 반드시 <span className="text-red-500">송금 완료 후</span> 버튼을 눌러주세요!
@@ -370,9 +439,18 @@ export default function CustomerApp({ initialTable }) {
                 {category.items.map((item) => {
                   const itemCartEntries = cartItems.filter(c => c.id === item.id);
                   const totalQuantity = itemCartEntries.reduce((sum, c) => sum + c.quantity, 0);
+                  
+                  const currentStock = inventory[item.id];
+                  const isUnlimited = currentStock === null || currentStock === undefined;
+                  const isSoldOut = !isUnlimited && currentStock <= 0;
 
                   return (
-                    <div key={item.id} className="bg-white/80 backdrop-blur-md p-4 rounded-[1.5rem] shadow-sm border border-white flex gap-4 transition-all hover:shadow-md relative overflow-hidden group">
+                    <div key={item.id} className={`bg-white/80 backdrop-blur-md p-4 rounded-[1.5rem] shadow-sm border border-white flex gap-4 transition-all relative overflow-hidden group ${isSoldOut ? 'opacity-60 grayscale' : 'hover:shadow-md'}`}>
+                      {isSoldOut && (
+                        <div className="absolute inset-0 z-10 bg-slate-100/40 flex items-center justify-center backdrop-blur-[1px]">
+                          <div className="bg-gray-800 text-white font-black text-xl px-6 py-2 rounded-2xl shadow-lg transform -rotate-12 border-2 border-white">SOLD OUT</div>
+                        </div>
+                      )}
                       <div className="w-24 h-[135px] shrink-0 bg-slate-100/80 rounded-xl border border-slate-200 flex flex-col items-center justify-center text-gray-400 relative overflow-hidden group-hover:border-blue-200 transition-colors">
                         {item.image && item.image !== "/placeholder.png" ? (
                           <>
@@ -408,15 +486,26 @@ export default function CustomerApp({ initialTable }) {
                               <p className="text-xs text-gray-400 font-bold mt-0.5">{item.name}</p>
                             </>
                           ) : (
-                            <h3 className="font-bold text-gray-800 text-lg leading-snug tracking-tight">{item.name}</h3>
+                            <h3 className="font-bold text-gray-800 text-lg leading-snug tracking-tight flex items-center gap-2">
+                              {item.name}
+                            </h3>
                           )}
-                          <p className="text-yonsei font-black mt-1.5 text-lg">
+                          <p className="text-yonsei font-black mt-1.5 text-lg flex items-center gap-2">
                             {item.options ? `${item.price.toLocaleString()}원~` : `${item.price.toLocaleString()}원`}
+                            {!isUnlimited && !isSoldOut && (
+                              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-md font-black shadow-sm animate-pulse">
+                                남은 수량: {currentStock}개
+                              </span>
+                            )}
                           </p>
                         </div>
                         
-                        <div className="flex justify-end mt-2">
-                          {item.options ? (
+                        <div className="flex justify-end mt-2 relative z-20">
+                          {isSoldOut ? (
+                            <button disabled className="px-5 py-2.5 bg-gray-200 text-gray-500 rounded-xl font-bold text-sm border border-gray-300">
+                              품절
+                            </button>
+                          ) : item.options ? (
                             <button
                               onClick={() => openOptionModal(item)}
                               className="px-4 py-2.5 bg-yonsei/10 text-yonsei border border-yonsei/20 rounded-xl font-bold active:bg-yonsei/20 transition text-sm flex items-center gap-1 shadow-sm"
@@ -539,7 +628,11 @@ export default function CustomerApp({ initialTable }) {
               if (activeCategory !== "장바구니") {
                 setActiveCategory("장바구니");
               } else {
-                setIsPaying(true);
+                if (cartItems.length === 0) {
+                  alert("장바구니에 담긴 메뉴가 없습니다.");
+                  return;
+                }
+                setIsConfirmingName(true);
               }
             }}
             className="w-full bg-gradient-to-r from-yonsei to-blue-700 text-white py-4 rounded-2xl font-black text-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all"

@@ -82,7 +82,7 @@ export default function KitchenView() {
               <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-100 flex-1 mb-3">
                 <ul className="space-y-2">
                   {order.items.map((item, idx) => (
-                    <li key={idx} className="flex justify-between items-center text-base md:text-lg font-black text-gray-800 pb-2 border-b border-gray-200/50 last:border-0 last:pb-0">
+                    <li key={idx} className="flex justify-between items-center gap-3 text-base md:text-lg font-black text-gray-800 pb-2 border-b border-gray-200/50 last:border-0 last:pb-0">
                       <div className="flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-yonsei shrink-0"></span>
                         <span className="leading-tight break-keep">{item.name}</span>
